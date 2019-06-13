@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <script type='text/javascript' src='https://code.jquery.com/jquery-1.9.1.js'></script>
+    <script type='text/javascript'>//<![CDATA[ 
+
+        // Used to convert "waterLevelState" to color
+        var waterLevelStateToColor = {
+            "UNKNOWN": 'blue',
+            "EMPTY": 'red',
+            "CRITICAL": 'red',
+            "LOW": 'yellow',
+            "OK": 'green',
+            "FULL": 'green',
+        };
+
+        var fountainData = {};
+
+        $(document).ready(function () {
+            autoRefresh();
+        });
+
+        $(window).load(function () {
+            drawPercentCircle();
+        });
+
+        /*
+        window.addEventListener("click", function (event) {
+            updateData();
+        });
+        */
+
+        function autoRefresh() {
+            getLatestData(false);
+            setTimeout(autoRefresh, 1000);
+        }
+
+        function getLatestData(async) {
+            var dataUrl = "/v1/data";
+            // Enable locally development of html
+            if (window.location.protocol == "file:") {
+                dataUrl = "http://rpifountain.local" + dataUrl;
+            }
+
+            $.ajax({
+                url: dataUrl,
+                async: async,
+                timeout: 15000
+            })
+                .done(function (data) {
+                    fountainData = data;
+                    // TODO: Testing
+                    //fountainData['waterLevelState'] = 'WATER_LEVEL_UNKNOWN'
+                    updateData();
+                })
+                .fail(function (jqxhr, textStatus, errorThrown) {
+                    console.log("AJAX call HTTP status: " + jqxhr.status + " Error: [" + textStatus + "] : [" + errorThrown + "]");
+                    fountainData = { };
+                    updateData();
+                });
+
+        }
+
+        function updateData() {
+
+            for (var elementId in fountainData) {
+                var element = document.getElementById(elementId);
+                if (element != null) {
+                    element.innerText = fountainData[elementId];
+                }
+            }
+            var element = null
+
+            rpiInfo = fountainData['rpiInfo']
+            if (rpiInfo != null) {
+                updateField('wifiSignal', 'signal')
+                updateField('rxbitrate', 'rx bitrate')
+                updateField('txbitrate', 'tx bitrate')
+                updateField('freq', 'freq')
+                updateField('RX', 'RX')
+                updateField('TX', 'TX')
+                updateField('connectedtime', 'connected time')
+            }
+
+            drawPercentCircle();
+        }
+
+        function updateField(elementName, jsonFieldName) {
+            element = document.getElementById(elementName);
+            rpiInfo = fountainData['rpiInfo']
+            if (rpiInfo != null) {
+                element.innerText = fountainData['rpiInfo'][jsonFieldName]
+            }
+        }
+
+        function getCircleColor() {
+            var state = fountainData['waterLevelState'];
+            var color = waterLevelStateToColor[state];
+            if (color == null) {
+                color = 'gray';
+            }
+            return color;
+        }
+
+        function drawPercentCircle() {
+            var canvas = document.getElementById("canvas");
+            var context = canvas.getContext("2d");
+
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            context.beginPath();
+            context.fillStyle = getCircleColor();
+            //context.strokeStyle = "black";
+            //context.lineWidth = 0;
+            context.arc((canvas.width / 2), (canvas.height / 2), (canvas.width / 2) / 2, 0, 2 * Math.PI, false);
+            context.fill();
+            //context.stroke();
+        }
+    //]]>
+    </script>
+
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            border: 0;
+            display: block;
+            font-size: 2vw;
+        }
+
+        canvas {
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        th {
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            background-color: #ccc;
+        }
+
+        #overlay {
+            top: 50%;
+            left: 54%;
+            z-index: 2;
+            margin: 0;
+            text-align: center;
+            vertical-align: middle;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-size: 12vw;
+            font-weight: bold;
+        }
+
+        .center {
+            position: relative;
+        }
+
+        #container {
+            padding-top: 30px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div id="container">
+        <div class="center">
+            <canvas id="canvas"></canvas><br />
+            <div id="overlay"><span id="waterLevelPercentFull">---</span>%</div>
+        </div>
+        <table>
+            <tr>
+                <th colspan="2">Temperatures</th>
+            </tr>
+            <tr>
+                <td>Water:</td>
+                <td><span id="waterTemperature"></span>&deg;</td>
+            </tr>
+            <tr>
+                <td>Fountain:</td>
+                <td><span id="fountainTemperature"></span>&deg;</td>
+            </tr>
+            <tr>
+                <td>RPi:</td>
+                <td><span id="circuitTemperature"></span>&deg;</td>
+            </tr>
+            <tr>
+                <th colspan="2">Details</th>
+            </tr>
+
+
+            <tr>
+                    <td>temp_distance_to_water_mm:</td>
+                    <td><span id="temp_distance_to_water_mm"></span>  mm</td>
+            </tr>
+
+                
+
+            <tr>
+                <td>Water Depth:</td>
+                <td><span id="waterDepth_inches"></span> inches (<span id="waterDepth_mm"></span> mm)</td>
+            </tr>
+            <tr>
+                <td>Water State:</td>
+                <td><span id="waterLevelState"></span></td>
+            </tr>
+            <tr>
+                <td>CPU:</td>
+                <td><span id="cpuPercent"></span>%</td>
+            </tr>
+            <tr>
+                <td>RPi Time:</td>
+                <td><span id="rpiTime"></span></td>
+            </tr>
+            <tr>
+                <th colspan="2">Wifi</th>
+            </tr>
+            <tr>
+                <td>Wifi signal:</td>
+                <td><span id="wifiSignal"></span></td>
+            </tr>
+            <tr>
+                <td>RX bitrate:</td>
+                <td><span id="rxbitrate"></span></td>
+            </tr>
+            <tr>
+                <td>TX bitrate:</td>
+                <td><span id="txbitrate"></span></td>
+            </tr>
+            <tr>
+                <td>Freq:</td>
+                <td><span id="freq"></span></td>
+            </tr>
+            <tr>
+                <td>RX:</td>
+                <td><span id="RX"></span></td>
+            </tr>
+            <tr>
+                <td>TX:</td>
+                <td><span id="TX"></span></td>
+            </tr>
+            <tr>
+                <td>Connected:</td>
+                <td><span id="connectedtime"></span></td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+
+</html>
