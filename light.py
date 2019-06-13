@@ -60,14 +60,17 @@ class Light:
 
         if GPIO.input(Light.motion_detect_pin):
             logger.info("Rising edge detected")
+            self._stop_display_off_timer()
             self.dim_display()
+ 
+        else:
+            logger.info("Falling edge detected")
+            # Start the off light timer when no more motion is detected
             self._stop_display_off_timer()
             self.display_off_timer = threading.Timer(
                 Light.display_auto_off_time_seconds, self.turnOffDisplay)
             self.display_off_timer.daemon = True
             self.display_off_timer.start()
-        else:
-            logger.info("Falling edge detected")
 
 
     def _stop_display_off_timer(self):
