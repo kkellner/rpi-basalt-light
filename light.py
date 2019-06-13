@@ -35,7 +35,7 @@ class Light:
     # The number of NeoPixels
     num_pixels =  56
 
-    display_auto_off_time_seconds = 60
+    display_auto_off_time_seconds = 5
 
     def __init__(self, basalt):
         self.basalt = basalt
@@ -55,19 +55,20 @@ class Light:
         self.turnOffDisplay()
 
     def motionHandler(self, channel):
-        logger.info('In motionHandler channel: %s' % channel)
-
-        motion_logger.info('Motion Detected')
+        #logger.info('In motionHandler channel: %s' % channel)
+        #motion_logger.info('Motion Detected')
 
         if GPIO.input(Light.motion_detect_pin):
             logger.info("Rising edge detected")
+            self.dim_display()
+            self._stop_display_off_timer()
+            self.display_off_timer = threading.Timer(
+                Light.display_auto_off_time_seconds, self.turnOffDisplay)
+            self.display_off_timer.daemon = True
+            self.display_off_timer.start()
         else:
             logger.info("Falling edge detected")
 
-        # self.display_off_timer = threading.Timer(
-        #     Light.display_auto_off_time_seconds, self.turnOffDisplay)
-        # self.display_off_timer.daemon = True
-        # self.display_off_timer.start()
 
     def _stop_display_off_timer(self):
         if self.display_off_timer is not None:
@@ -80,6 +81,19 @@ class Light:
         self.pixels.fill((0, 0, 0, 0))
         self.pixels.show()
 
+
+    def dim_display(self):
+        for i in range(28):
+            self.pixels[i] = (2,1,0,0)
+    
+        for i in range(29,56, 1):
+            self.pixels[i] = (0,0,0,0)
+
+        self.pixels.show()
+
+
+    def showStartup(self):
+        self._STARTUP_Sequence()
 
     def _STARTUP_Sequence(self):
         self.pixels.fill((0, 128, 0, 0))
