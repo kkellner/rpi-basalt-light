@@ -1,4 +1,4 @@
-# Fountain project
+# Basault light project
 #
 # http_request.py - handle http requests
 #
@@ -16,6 +16,7 @@ import json
 import psutil
 from functools import partial
 import subprocess
+from light import Light, LightState
 
 logger = logging.getLogger('http_request')
 
@@ -24,19 +25,20 @@ class HttpServer():
 
     PORT = 80
 
-    def __init__(self, _fountain):
+    def __init__(self, _basault):
 
         endpointsGET = { 
             "/": "status",
             "/favicon.ico": "favicon",
             "/v1/data": "v1_data",
+            "/v1/userLightStates": "v1_userLightStates",
             "/test": "test",
             "/log": "log",
             }
 
         socketserver.TCPServer.allow_reuse_address = True
 
-        handler = partial(GetRequestHandler, _fountain, endpointsGET)
+        handler = partial(GetRequestHandler, _basault, endpointsGET)
 
         #self.httpd = socketserver.TCPServer(('0.0.0.0', PORT), handler)
         self.httpd = ThreadedHTTPServer(('0.0.0.0', HttpServer.PORT), handler)
@@ -126,19 +128,29 @@ class GetRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes(cmdOutput, 'utf-8'))
 
+    def get_v1_userLightStates(self):
+        light = self.basalt.light
+        response = light.getUserLightStates()
+        self.__send_json_response(response)
+        return
 
     def get_v1_data(self):
         
-
-        rpiInfo = self.fountain.rpi_info.get_info()
+        light = self.basalt.light
+        rpiInfo = self.basalt.rpi_info.get_info()
 
         response = {
+                "lightState" : light.getLightState().name,
                 "cpuPercent": psutil.cpu_percent(),
                 "rpiTime": datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
                 "rpiInfo": rpiInfo
             }
+        self.__send_json_response(response)
+        return
 
-        data = json.dumps(response)
+
+    def __send_json_response(self, responseMap):
+        data = json.dumps(responseMap)
 
         # Write the response
         self.protocol_version = 'HTTP/1.1'

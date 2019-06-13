@@ -23,6 +23,17 @@ class Color:
     PURPLE = (255, 0, 255)
     BLACK = (0, 0, 0)
 
+class LightState(Enum):
+    UNKNOWN = 0
+    STARTUP = 1
+    SHUTDOWN = 2
+    ERROR = 3
+    OFF = 10
+    NIGHT_LIGHT = 11
+    SHOW_PATH = 12
+    TEST1 = 100
+    TEST2 = 100
+    TEST3 = 100
 
 
 class Light:
@@ -39,7 +50,8 @@ class Light:
 
     def __init__(self, basalt):
         self.basalt = basalt
-        self.display_off_timer = None
+        self.lightState = LightState.UNKNOWN
+        self.motion_timer = None
 
         # Docs: https://circuitpython.readthedocs.io/projects/neopixel/en/latest/api.html
         self.pixels = neopixel.NeoPixel(pin=Light.pixel_pin, n=Light.num_pixels,
@@ -52,7 +64,15 @@ class Light:
 
 
     def shutdown(self):
-        self.turnOffDisplay()
+        self.turnLightOff()
+
+    def getUserLightStates(self): 
+        response = {}
+        for data in LightState:
+            if data.value >= LightState.OFF.value:
+                response[data.name] = data.value
+        return response
+
 
     def motionHandler(self, channel):
         #logger.info('In motionHandler channel: %s' % channel)
@@ -60,38 +80,61 @@ class Light:
 
         if GPIO.input(Light.motion_detect_pin):
             logger.info("Rising edge detected")
-            self._stop_display_off_timer()
-            self.dim_display()
+            self._stop_motion_timer()
+            self.setLightState(LightState.NIGHT_LIGHT)
  
         else:
             logger.info("Falling edge detected")
             # Start the off light timer when no more motion is detected
-            self._stop_display_off_timer()
-            self.display_off_timer = threading.Timer(
-                Light.display_auto_off_time_seconds, self.turnOffDisplay)
-            self.display_off_timer.daemon = True
-            self.display_off_timer.start()
+            self._stop_motion_timer()
+            self.motion_timer = threading.Timer(
+                Light.display_auto_off_time_seconds, self.motionTimeExpired)
+            self.motion_timer.daemon = True
+            self.motion_timer.start()
 
 
-    def _stop_display_off_timer(self):
-        if self.display_off_timer is not None:
-            self.display_off_timer.cancel()
-        self.display_off_timer = None
+    def _stop_motion_timer(self):
+        if self.motion_timer is not None:
+            self.motion_timer.cancel()
+        self.motion_timer = None
 
-    def turnOffDisplay(self):
-        logger.info('In turnOffDisplay')
-        self._stop_display_off_timer()
+    def motionTimeExpired(self):
+        self.setLightState(LightState.OFF)
+
+
+    def turnLightOff(self):
+        logger.info('In turnLightOff')
+        self._stop_motion_timer()
         self.pixels.fill((0, 0, 0, 0))
         self.pixels.show()
 
+    def getLightState(self):
+        return self.lightState
 
-    def dim_display(self):
+    def setLightState(self, lightState):
+        self.lightState = lightState
+        methodSuffix = lightState.name
+        handlerMethodName = "_setLight_" + methodSuffix
+        handlerMethod = getattr(self, handlerMethodName)
+        result = handlerMethod()
+        return result
+
+    def _setLight_OFF(self):
+        self.turnLightOff()
+
+
+    def _setLight_NIGHT_LIGHT(self):
         for i in range(28):
             self.pixels[i] = (2,1,0,0)
-    
         for i in range(29,56, 1):
             self.pixels[i] = (0,0,0,0)
+        self.pixels.show()
 
+    def _setLight_TEST1(self):
+        for i in range(28):
+            self.pixels[i] = (4,0,0,0)
+        for i in range(29,56, 1):
+            self.pixels[i] = (0,0,4,0)
         self.pixels.show()
 
 
