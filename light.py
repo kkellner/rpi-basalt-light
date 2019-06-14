@@ -137,12 +137,17 @@ class Light:
             self.pixels[i] = (0,0,4,0)
         self.pixels.show()
 
+    def _setLight_SHOW_PATH(self):
+        for i in range(56):
+            self.pixels[i] = (0,0,0,20)
+        self.pixels.show()
+
 
     def showStartup(self):
         self._STARTUP_Sequence()
 
     def _STARTUP_Sequence(self):
-        self.pixels.fill((0, 128, 0, 0))
+        self.pixels.fill((0, 0, 1, 0))
         self.pixels.show()
         time.sleep(1)
         self.pixels.fill((0, 0, 0, 0))
