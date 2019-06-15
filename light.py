@@ -122,6 +122,9 @@ class Light:
     def _setLight_OFF(self):
         self.turnLightOff()
 
+    def transision(self, fromColor, toColor, speed):
+        # Todo
+        self.turnLightOff()
 
     def _setLight_NIGHT_LIGHT(self):
         for i in range(28):
