@@ -31,6 +31,7 @@ class LightState(Enum):
     OFF = 10
     NIGHT_LIGHT = 11
     SHOW_PATH = 12
+    FULL_BRIGHT = 13
     TEST1 = 100
     TEST2 = 100
     TEST3 = 100
@@ -127,14 +128,14 @@ class Light:
         self.turnLightOff()
 
     def _setLight_NIGHT_LIGHT(self):
-        for i in range(28):
+        for i in range(29):
             self.pixels[i] = (2,1,0,0)
         for i in range(29,56, 1):
             self.pixels[i] = (0,0,0,0)
         self.pixels.show()
 
     def _setLight_TEST1(self):
-        for i in range(28):
+        for i in range(29):
             self.pixels[i] = (4,0,0,0)
         for i in range(29,56, 1):
             self.pixels[i] = (0,0,4,0)
@@ -145,6 +146,10 @@ class Light:
             self.pixels[i] = (0,0,0,20)
         self.pixels.show()
 
+    def _setLight_FULL_BRIGHT(self):
+        for i in range(56):
+            self.pixels[i] = (254,254,254,254)
+        self.pixels.show()
 
     def showStartup(self):
         self._STARTUP_Sequence()

@@ -17,8 +17,8 @@ StandardError=inherit
 # The following "file:" option requires systemd version 236 or newer 
 # 2019-04-08-raspbian-stretch-lite has version 232
 # To show version run: systemctl --version
-#StandardOutput=file:/var/log/fountain.log
-#StandardError=file:/var/log/fountain.log
+StandardOutput=append:/var/log/basalt.log
+StandardError=append:/var/log/basalt.log
 Restart=always
 User=root
 
