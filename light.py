@@ -66,6 +66,7 @@ class Light:
 
     def shutdown(self):
         self.turnLightOff()
+        GPIO.cleanup()
 
     def getUserLightStates(self): 
         response = {}

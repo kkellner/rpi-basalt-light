@@ -16,10 +16,10 @@ import signal
 import sys
 import os
 
+from pubsub import Pubsub
 from light import Light
 from http_request import HttpServer
 from rpi_info import RpiInfo
-
 
 logger = logging.getLogger('basalt')
 
@@ -28,8 +28,9 @@ class Basalt:
     """Handle basalt display operations"""
 
     def __init__(self):
-        self.server = None
+        self.pubsub = None
         self.light = None
+        self.server = None
         self.rpi_info = None
 
         # Docs: https://docs.python.org/3/library/logging.html
@@ -60,12 +61,15 @@ class Basalt:
             self.server.shutdown()
         if self.light is not None:
             self.light.shutdown()
-        GPIO.cleanup()
+        if self.pubsub is not None:
+            self.pubsub.shutdown()
         sys.tracebacklimit = 0
         sys.exit(0)
 
     def startup(self):
         logger.info('Startup...')
+
+        self.pubsub = Pubsub(self)
 
         self.light = Light(self)
         self.light.showStartup()

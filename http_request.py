@@ -24,6 +24,9 @@ logger = logging.getLogger('http_request')
 class HttpServer():
 
     PORT = 80
+    SOCKET_TIMEOUT = 60
+    THREAD_POOL_SIZE = 10
+
 
     def __init__(self, _basault):
 
@@ -75,6 +78,13 @@ class GetRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.endpointsGET = endpointsGET
         self.endpointsPOST = endpointsPOST
         super().__init__(*args, **kwargs)
+
+    def setup(self):
+        "Sets a timeout on the socket"
+        logger.info("Set timeout on the socket")
+        # TOOD: How does this work with keep-alive?  A keep-alive socket is getting timed out
+        self.request.settimeout(HttpServer.SOCKET_TIMEOUT)
+        http.server.SimpleHTTPRequestHandler.setup(self)
 
     def log_message(self, format, *args):
         logger.debug(format % args)
@@ -219,7 +229,7 @@ class ThreadPoolMixIn(socketserver.ThreadingMixIn):
     '''
     use a thread pool instead of a new thread on every request
     '''
-    numThreads = 10
+    numThreads = HttpServer.THREAD_POOL_SIZE
     allow_reuse_address = True  # seems to fix socket.error on server restart
 
     def serve_forever(self):
@@ -256,6 +266,7 @@ class ThreadPoolMixIn(socketserver.ThreadingMixIn):
         '''
         try:
             request, client_address = self.get_request()
+            #client_address.socket.settimeout(10.0)
         except socket.error:
             return
         if self.verify_request(request, client_address):
