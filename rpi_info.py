@@ -4,7 +4,7 @@ import subprocess
 import logging
 import time
 
-logger = logging.getLogger('display')
+logger = logging.getLogger('RpiInfo')
 
 
 class RpiInfo:

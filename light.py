@@ -115,10 +115,17 @@ class Light:
 
     def setLightState(self, lightState):
         self.lightState = lightState
-        methodSuffix = lightState.name
+        lightStateName = lightState.name
+
+        # Determine the method name to call based on light state
+        methodSuffix = lightStateName
         handlerMethodName = "_setLight_" + methodSuffix
         handlerMethod = getattr(self, handlerMethodName)
         result = handlerMethod()
+
+        # Publish the new light state
+        self.basalt.pubsub.publishLightState(lightStateName)
+
         return result
 
     def _setLight_OFF(self):

@@ -5,18 +5,35 @@ import threading
 import logging, logging.handlers
 import paho.mqtt.client as mqtt
 import json
+import os
+from light import Light, LightState
 
 logger = logging.getLogger('pubsub')
 
+#
+# Node: [NAMESPACE]/node/[NODE_NAME]/status
+#    yukon/node/rpibasaltX/status
+#
+# Device: [NAMESPACE]/device/[TYPE]/[LOCATION_NAME]/[NODE_NAME]/[DEVICE_NAME]/status
+#    yukon/device/basalt/driveway/rpibasaltX/light/status
+#
+# To update all basalt lights in sync -- publish to this queue
+# All Device sync: [NAMESPACE]/device/[TYPE]/[LOCATION_NAME]/ALL/[DEVICE_NAME]/status
+#    yukon/device/basalt/driveway/ALL/light/status
+#
+# Pub test message from command-line:
+#   mosquitto_pub -h rpicontroller1 -r -d -t "yukon/device/basalt/driveway/ALL/light/status" -m "{ 'lightState': 'NIGHT_LIGHT'}"
+#   mosquitto_sub -h rpicontroller1 -d -t "yukon/device/basalt/driveway/rpibasalt1/light/status"
+#
 class Pubsub:
 
     mqttBrokerHost = "rpicontroller1.hyperboard.net"
     mqttBrokerPort = 1883
     #sensorQueueName = "yukon/basalt/PubsubA"
 
-    # Node name example: yukon/node/basalt1/status
+    # Node name example: yukon/node/rpibasalt1/status
     queueNamespace = "yukon"
-    nodeName = "basalt1"
+    nodeName = os.uname().nodename
     queueNodeStatus = queueNamespace + "/node/" + nodeName + "/status"
 
     # Device name example: yukon/device/basalt/driveway/basalt1/light/status
@@ -24,10 +41,12 @@ class Pubsub:
     typeName = "basalt"
     deviceName = "light"
     queueDeviceStatus = queueNamespace + "/device/" + typeName + "/" +locationName + "/" + nodeName + "/" + deviceName + "/status"
+    queueDeviceAllStatus = queueNamespace + "/device/" + typeName + "/" +locationName + "/ALL/" + deviceName + "/status"
 
-    def __init__(self, motion):
-        self.motion = motion
+    def __init__(self, basalt):
+        self.basalt = basalt
 
+        logger.info("Node name: %s Node MQTT: %s Device MQTT: %s", Pubsub.nodeName, Pubsub.queueNodeStatus, Pubsub.queueDeviceStatus )
         # Connect to MQTT broker
         self.client = mqtt.Client(client_id=Pubsub.nodeName)
         mqttLogger = logging.getLogger('mqtt')
@@ -39,6 +58,9 @@ class Pubsub:
         self.client.on_disconnect = self.on_disconnect
         deathPayload = "DISCONNECTED"
         self.client.will_set(Pubsub.queueNodeStatus, deathPayload, 0, True)
+
+        self.client.message_callback_add(Pubsub.queueDeviceAllStatus, self.on_message_light_status)
+        self.client.on_message = self.on_message
 
         self.client.connect_async(Pubsub.mqttBrokerHost,Pubsub.mqttBrokerPort,60)
 
@@ -78,10 +100,40 @@ class Pubsub:
     def on_connect(self, client, userdata, flags, rc):
         logger.info("Connected with result code "+str(rc))
         self.publishBirth()
+        self.client.subscribe(Pubsub.queueDeviceAllStatus, qos=2)
 
     def on_disconnect(self, client, userdata, rc):
         logger.warn("Disconnected with result code "+str(rc))
 
+
+    ######################################################################
+    # Subscribe: To all "other" messages, which we shouldn't have any
+    ######################################################################
+    def on_message(self, client, userdata, msg):
+        topic=msg.topic
+        logger.info("Got generic message from %s timestamp: %s", topic, msg.timestamp)
+
+
+    ######################################################################
+    # Subscribe: List for the ALL (sync) queue to change light state
+    ######################################################################
+    def on_message_light_status(self, client, userdata, msg):
+        topic=msg.topic
+        logger.info("Got message from %s timestamp: %s", topic, msg.timestamp)
+        m_decode=str(msg.payload.decode("utf-8","ignore"))
+        #logger.info("data Received type %s",type(m_decode))
+        logger.info("data Received: %s",m_decode)
+        m_in=json.loads(m_decode) #decode json data
+        lightStateName = m_in["lightState"]
+        logger.info("payload light state = %s", lightStateName)
+
+        if not lightStateName in LightState.__members__:
+            logger.error("Unknown light state name: [%s]", lightStateName)
+            return
+
+        lightState = LightState[lightStateName]
+        light = self.basalt.light
+        light.setLightState(lightState)
 
     def shutdown(self):
         logger.info("Shutdown -- disconnect from MQTT broker")
@@ -98,14 +150,24 @@ class Pubsub:
         }
         self.publishEventObject(Pubsub.queueDeviceStatus, data)
 
+    ######################################################################
+    # publish the current state of THIS light
+    ######################################################################
+    def publishLightState(self, lightStateName):
+        data = {
+            "lightState": lightStateName,
+            "time" : time.time()
+        }
+        self.publishEventObject(Pubsub.queueDeviceStatus, data, True)
 
-    def publishEventObject(self, eventQueue, eventData):
+
+    def publishEventObject(self, eventQueue, eventData, retain=False):
         data_out=json.dumps(eventData) # encode object to JSON
-        return self.publishEventString(eventQueue, data_out)
+        return self.publishEventString(eventQueue, data_out, retain)
 
-    def publishEventString(self, eventQueue, eventString):
+    def publishEventString(self, eventQueue, eventString, retain=False):
         logger.info("Publish to queue [%s] data: [%s]", eventQueue, eventString)
-        msg_info = self.client.publish(eventQueue, eventString, qos=0)
+        msg_info = self.client.publish(eventQueue, eventString, qos=0, retain=retain)
         #msg_info.wait_for_publish()
         return msg_info
 

@@ -5,7 +5,8 @@
 
 import logging
 import time
-from datetime import datetime
+import datetime
+#from datetime import datetime
 import http.server
 import socketserver
 import threading
@@ -14,6 +15,7 @@ from queue import Queue
 import socketserver
 import json
 import psutil
+import os
 from functools import partial
 import subprocess
 from light import Light, LightState
@@ -191,10 +193,24 @@ class GetRequestHandler(http.server.SimpleHTTPRequestHandler):
         light = self.basalt.light
         rpiInfo = self.basalt.rpi_info.get_info()
 
+        # TODO: move this to rpi_info class
+        # Time format: https://www.saltycrane.com/blog/2008/06/how-to-get-current-date-and-time-in/
+        # https://stackoverflow.com/questions/538666/format-timedelta-to-string
+        osStartTime = psutil.boot_time()
+        osUptime = time.time() - osStartTime
+
+        p = psutil.Process(os.getpid())
+        appStartTime = p.create_time()
+        appUptime = time.time() - appStartTime
+
         response = {
                 "lightState" : light.getLightState().name,
                 "cpuPercent": psutil.cpu_percent(),
-                "rpiTime": datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                "rpiTime": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                "osUptime": osUptime,
+                "osUptimeFmt": str(datetime.timedelta(seconds=round(osUptime))),
+                "appUptime": appUptime,
+                "appUptimeFmt": str(datetime.timedelta(seconds=round(appUptime))),
                 "rpiInfo": rpiInfo
             }
         self.__send_json_response(response)
