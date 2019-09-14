@@ -8,6 +8,9 @@ import json
 import os
 from light import Light, LightState
 
+import yaml
+
+
 logger = logging.getLogger('pubsub')
 
 #
@@ -27,9 +30,6 @@ logger = logging.getLogger('pubsub')
 #
 class Pubsub:
 
-    mqttBrokerHost = "rpicontroller1.hyperboard.net"
-    mqttBrokerPort = 1883
-    #sensorQueueName = "yukon/basalt/PubsubA"
 
     # Node name example: yukon/node/rpibasalt1/status
     queueNamespace = "yukon"
@@ -45,6 +45,15 @@ class Pubsub:
 
     def __init__(self, basalt):
         self.basalt = basalt
+
+        ymlfile = open("config.yml", 'r')
+        cfg = yaml.safe_load(ymlfile)
+        mqttConfig = cfg['mqtt']
+
+        self.mqttBrokerHost = mqttConfig['host']
+        self.mqttBrokerPort = mqttConfig['port']
+        self.mqttBrokerUsername = mqttConfig['username']
+        self.mqttBrokerPassword = mqttConfig['password']
 
         logger.info("Node name: %s Node MQTT: %s Device MQTT: %s", Pubsub.nodeName, Pubsub.queueNodeStatus, Pubsub.queueDeviceStatus )
         # Connect to MQTT broker
@@ -62,7 +71,8 @@ class Pubsub:
         self.client.message_callback_add(Pubsub.queueDeviceAllStatus, self.on_message_light_status)
         self.client.on_message = self.on_message
 
-        self.client.connect_async(Pubsub.mqttBrokerHost,Pubsub.mqttBrokerPort,60)
+        self.client.username_pw_set(self.mqttBrokerUsername, self.mqttBrokerPassword)
+        self.client.connect_async(self.mqttBrokerHost,self.mqttBrokerPort,60)
 
         self.client.loop_start()
 
@@ -78,7 +88,7 @@ class Pubsub:
     ######################################################################
     def publishNodeBirth(self):
         logger.info("Publishing Node Birth")
-        payload = "ONLINE"
+        payload = "online"
         self.client.publish(Pubsub.queueNodeStatus, payload, 0, True)
 
     ######################################################################
@@ -86,7 +96,7 @@ class Pubsub:
     ######################################################################
     def publishDeviceBirth(self):
         logger.info("Publishing Device Birth")
-        payload = "TBD"
+        payload = "unknown"
         self.client.publish(Pubsub.queueDeviceStatus, payload, 0, True)
 
     ######################################################################
@@ -94,7 +104,7 @@ class Pubsub:
     ######################################################################
     def publishNodeOffline(self):
         logger.info("Publishing Node Birth")
-        payload = "OFFLINE"
+        payload = "offline"
         self.client.publish(Pubsub.queueNodeStatus, payload, 0, True)
         
     def on_connect(self, client, userdata, flags, rc):

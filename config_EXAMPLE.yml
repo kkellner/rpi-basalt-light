@@ -1,0 +1,5 @@
+mqtt:
+  host: MQTT_SERVER
+  port: 1883
+  username: USERNAME
+  password: PASSWORD
