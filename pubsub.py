@@ -6,6 +6,7 @@ import logging, logging.handlers
 import paho.mqtt.client as mqtt
 import json
 import os
+import sys
 from light import Light, LightState
 
 import yaml
@@ -128,22 +129,26 @@ class Pubsub:
     # Subscribe: List for the ALL (sync) queue to change light state
     ######################################################################
     def on_message_light_status(self, client, userdata, msg):
-        topic=msg.topic
-        logger.info("Got message from %s timestamp: %s", topic, msg.timestamp)
-        m_decode=str(msg.payload.decode("utf-8","ignore"))
-        #logger.info("data Received type %s",type(m_decode))
-        logger.info("data Received: %s",m_decode)
-        m_in=json.loads(m_decode) #decode json data
-        lightStateName = m_in["lightState"]
-        logger.info("payload light state = %s", lightStateName)
+        try:
+            topic=msg.topic
+            logger.info("Got message from %s timestamp: %s", topic, msg.timestamp)
+            m_decode=str(msg.payload.decode("utf-8","ignore"))
+            #logger.info("data Received type %s",type(m_decode))
+            logger.info("data Received: %s",m_decode)
+            m_in=json.loads(m_decode) #decode json data
+            lightStateName = m_in["lightState"]
+            logger.info("payload light state = %s", lightStateName)
 
-        if not lightStateName in LightState.__members__:
-            logger.error("Unknown light state name: [%s]", lightStateName)
-            return
+            if not lightStateName in LightState.__members__:
+                logger.error("Unknown light state name: [%s]", lightStateName)
+                return
 
-        lightState = LightState[lightStateName]
-        light = self.basalt.light
-        light.setLightState(lightState)
+            lightState = LightState[lightStateName]
+            light = self.basalt.light
+            light.setLightState(lightState)
+        except: # catch *all* exceptions
+            e = sys.exc_info()
+            logger.error("Exception in on_message_light_status: %s", e)
 
     def shutdown(self):
         logger.info("Shutdown -- disconnect from MQTT broker")
